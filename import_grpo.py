@@ -18,8 +18,62 @@ def load_vendor_mappings():
         with open('vendor_mappings.json', 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        print("Error: vendor_mappings.json not found.")
         return {}
+
+def save_vendor_mappings(mappings):
+    with open('vendor_mappings.json', 'w') as f:
+        json.dump(mappings, f, indent=2)
+
+def setup_new_vendor(vendor_code, mappings):
+    print(f"\n--- Interactive Setup for New Vendor: {vendor_code} ---")
+    print("Please type the exact column names as they appear in the Excel files.")
+    print("If a field is not present in the Excel file, you can just press Enter to skip it.\n")
+    
+    invoice = {}
+    packing = {}
+    batch_udfs = {}
+    
+    print("[INVOICE EXCEL FILE]")
+    invoice["invoice_num"] = input("Column name for 'Invoice Number' (e.g. Invoice): ").strip()
+    invoice["material"] = input("Column name for 'Material / Item Part Number': ").strip()
+    invoice["qty"] = input("Column name for 'Total Quantity': ").strip()
+    invoice["net_value"] = input("Column name for 'Line Net Value (Price)': ").strip()
+    invoice["width"] = input("Column name for 'Roll Width' (if any): ").strip()
+    invoice["date"] = input("Column name for 'Billing Date' (if any): ").strip()
+    
+    print("\n[PACKING SLIP EXCEL FILE]")
+    packing["invoice_num"] = input("Column name for 'Invoice / Billing Document': ").strip()
+    packing["material"] = input("Column name for 'Material / Item Part Number': ").strip()
+    packing["width"] = input("Column name for 'Width MM': ").strip()
+    packing["net_wt"] = input("Column name for 'Net Weight (KGS)': ").strip()
+    packing["batch_num"] = input("Column name for 'Batch Number / Roll No': ").strip()
+    
+    print("\n[PACKING SLIP - BATCH DETAILS (UDFs)]")
+    batch_udfs["U_Length"] = input("Column name for 'Length (MTR)': ").strip()
+    batch_udfs["U_width"] = input("Column name for 'Width MM': ").strip()
+    batch_udfs["U_EmName"] = input("Column name for 'EmName' (if any): ").strip()
+    batch_udfs["U_VechileNo"] = input("Column name for 'Vehicle No': ").strip()
+    batch_udfs["U_Grade"] = input("Column name for 'Grade': ").strip()
+    batch_udfs["U_OD"] = input("Column name for 'OD MM': ").strip()
+    batch_udfs["U_Core"] = input("Column name for 'Core INCH': ").strip()
+    batch_udfs["U_Micron"] = input("Column name for 'Micron (MIC)': ").strip()
+    batch_udfs["U_GrossWt"] = input("Column name for 'Gross Weight (KGS)': ").strip()
+    
+    # Remove empty answers
+    invoice = {k: v for k, v in invoice.items() if v}
+    packing = {k: v for k, v in packing.items() if v}
+    batch_udfs = {k: v for k, v in batch_udfs.items() if v}
+    
+    packing["batch_udfs"] = batch_udfs
+    mappings[vendor_code] = {
+        "invoice": invoice,
+        "packing": packing
+    }
+    
+    save_vendor_mappings(mappings)
+    print(f"\nSuccess! Configuration for {vendor_code} has been saved to vendor_mappings.json.")
+    print("Continuing with script execution...\n")
+    return mappings
 
 def login():
     """Authenticate with SAP Service Layer"""
@@ -90,8 +144,14 @@ def get_item_code_by_bp_catalog(session, bp_code, catalog_no):
 def main(vendor_code, invoice_file, packing_file, dry_run=False):
     mappings = load_vendor_mappings()
     if vendor_code not in mappings:
-        print(f"Error: No mapping found for vendor {vendor_code} in vendor_mappings.json")
-        return
+        print(f"\nVendor '{vendor_code}' is not mapped yet.")
+        ans = input("Would you like to set up the Excel mapping for this vendor now? (y/n): ").strip().lower()
+        if ans == 'y':
+            mappings = setup_new_vendor(vendor_code, mappings)
+        else:
+            print("Exiting.")
+            return
+            
     v_map = mappings[vendor_code]
     inv_map = v_map["invoice"]
     pack_map = v_map["packing"]
