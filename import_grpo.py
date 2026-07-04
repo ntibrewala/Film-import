@@ -97,6 +97,33 @@ def main(vendor_code, invoice_file, packing_file, dry_run=False):
     pack_df.columns = [str(c).strip() for c in pack_df.columns]
     
     session = login()
+    import sys
+    
+    # Pre-flight validation: Check if all items in invoice are mapped in SAP BP Catalog
+    print("\nPerforming pre-flight item mapping validation...")
+    missing_mappings = []
+    material_col = inv_map.get('material', 'Material')
+    if material_col in inv_df.columns:
+        unique_materials = inv_df[material_col].dropna().unique()
+        for mat in unique_materials:
+            mat_str = str(mat).strip()
+            if not mat_str or str(mat).lower() == 'nan':
+                continue
+            sap_code = get_item_code_by_bp_catalog(session, vendor_code, mat_str)
+            if not sap_code:
+                missing_mappings.append(mat_str)
+    
+    if missing_mappings:
+        print("\n" + "="*80)
+        print("ERROR: PRE-FLIGHT VALIDATION FAILED")
+        print("The following vendor part numbers are missing in SAP Business Partner Catalog Numbers:")
+        for mm in missing_mappings:
+            print(f"  - {mm}")
+        print(f"\nPlease map these items in SAP for Vendor {vendor_code} (Inventory > Item Management > Business Partner Catalog Numbers)")
+        print("="*80 + "\n")
+        sys.exit(1)
+        
+    print("Validation passed. All items are mapped correctly.\n")
     
     # Group by Invoice Number
     invoice_col = inv_map.get("invoice_num", "Invoice")
