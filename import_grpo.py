@@ -61,11 +61,14 @@ def get_item_code_by_frgn_name(session, frgn_name):
         return item_code_cache[frgn_name]
     
     query = f"{SL_URL}/Items?$select=ItemCode&$filter=ForeignName eq '{frgn_name}'"
-    res = session.get(query, verify=False).json()
+    res_obj = session.get(query, verify=False)
+    res = res_obj.json()
     if res.get('value') and len(res['value']) > 0:
         item_code = res['value'][0]['ItemCode']
         item_code_cache[frgn_name] = item_code
         return item_code
+    else:
+        print(f"Debug: Items query returned HTTP {res_obj.status_code}: {res}")
     return None
 
 def main(invoice_file, packing_file, dry_run=False):
