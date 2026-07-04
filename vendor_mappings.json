@@ -1,0 +1,29 @@
+{
+  "V00038": {
+    "invoice": {
+      "invoice_num": "Billing Document",
+      "material": "Material",
+      "qty": "Total Qty.",
+      "net_value": "Net Value",
+      "width": "Width",
+      "date": "Billing Date"
+    },
+    "packing": {
+      "invoice_num": "Billing Document",
+      "material": "Material",
+      "width": "Width MM",
+      "net_wt": "Net_WT(KGS)",
+      "batch_udfs": {
+        "U_Length": "Length MTR",
+        "U_width": "Width MM",
+        "U_EmName": "EmName",
+        "U_VechileNo": "Vehicle no",
+        "U_Grade": "Grade",
+        "U_OD": "OD MM",
+        "U_Core": "Core INCH",
+        "U_Micron": "MIC",
+        "U_GrossWt": "Gross_WT(KGS)"
+      }
+    }
+  }
+}

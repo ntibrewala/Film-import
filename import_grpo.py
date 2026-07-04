@@ -13,7 +13,13 @@ SL_URL = os.environ.get('SAP_SL_URL', 'https://10.10.0.113:50000/b1s/v1')
 SL_USER = os.environ.get('SAP_USER', 'manager')
 SL_PASSWORD = os.environ.get('SAP_PASSWORD', 'bppl@123')
 SL_DB = os.environ.get('SAP_COMPANY_DB', 'TEST_BHAVYA_23062026')
-VENDOR_CODE = 'V00038'  # Hardcoded based on user request
+def load_vendor_mappings():
+    try:
+        with open('vendor_mappings.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("Error: vendor_mappings.json not found.")
+        return {}
 
 def login():
     """Authenticate with SAP Service Layer"""
@@ -55,23 +61,31 @@ def find_po(session, customer_po_no, order_no):
     return None
 
 item_code_cache = {}
-def get_item_code_by_frgn_name(session, frgn_name):
-    """Lookup SAP ItemCode by Foreign Name (FrgnName)"""
-    if frgn_name in item_code_cache:
-        return item_code_cache[frgn_name]
+def get_item_code_by_bp_catalog(session, bp_code, catalog_no):
+    """Lookup SAP ItemCode by BP Catalog Number"""
+    cache_key = f"{bp_code}_{catalog_no}"
+    if cache_key in item_code_cache:
+        return item_code_cache[cache_key]
     
-    query = f"{SL_URL}/Items?$select=ItemCode&$filter=ForeignName eq '{frgn_name}'"
+    query = f"{SL_URL}/AlternateCatNum?$select=ItemCode&$filter=CardCode eq '{bp_code}' and Substitute eq '{catalog_no}'"
     res_obj = session.get(query, verify=False)
     res = res_obj.json()
     if res.get('value') and len(res['value']) > 0:
         item_code = res['value'][0]['ItemCode']
-        item_code_cache[frgn_name] = item_code
+        item_code_cache[cache_key] = item_code
         return item_code
     else:
-        print(f"Debug: Items query returned HTTP {res_obj.status_code}: {res}")
+        print(f"Debug: BP Catalog query returned HTTP {res_obj.status_code}: {res}")
     return None
 
-def main(invoice_file, packing_file, dry_run=False):
+def main(vendor_code, invoice_file, packing_file, dry_run=False):
+    mappings = load_vendor_mappings()
+    if vendor_code not in mappings:
+        print(f"Error: No mapping found for vendor {vendor_code} in vendor_mappings.json")
+        return
+    v_map = mappings[vendor_code]
+    inv_map = v_map["invoice"]
+    pack_map = v_map["packing"]
     print(f"Reading invoice data from: {invoice_file}")
     inv_df = pd.read_excel(invoice_file)
     
@@ -85,10 +99,11 @@ def main(invoice_file, packing_file, dry_run=False):
     session = login()
     
     # Group by Invoice Number
-    if 'Invoice' in inv_df.columns:
-        invoices = inv_df.groupby('Invoice')
+    invoice_col = inv_map.get("invoice_num", "Invoice")
+    if invoice_col in inv_df.columns:
+        invoices = inv_df.groupby(invoice_col)
     else:
-        print("Error: 'Invoice' column not found in invoice file.")
+        print(f"Error: '{invoice_col}' column not found in invoice file.")
         return
 
     for inv_num, inv_group in invoices:
@@ -97,14 +112,14 @@ def main(invoice_file, packing_file, dry_run=False):
         
         customer_po = header.get('Customer PO No.', '')
         order_no = header.get('Sale Order', '')
-        billing_date = header.get('Billing Date')
+        billing_date = header.get(inv_map.get('date', 'Billing Date'))
         
         # Format date for SAP (YYYY-MM-DD)
         try:
             doc_date = pd.to_datetime(billing_date).strftime('%Y-%m-%d')
         except:
             doc_date = None
-            print(f"Warning: Could not parse Billing Date '{billing_date}'")
+            print(f"Warning: Could not parse date '{billing_date}'")
             
         po_data = find_po(session, customer_po, order_no)
         if not po_data:
@@ -117,7 +132,7 @@ def main(invoice_file, packing_file, dry_run=False):
         print(f"Found linked PO DocNum {po_data['DocNum']} (DocEntry {po_docentry}) from Vendor {po_cardcode}")
         
         grpo_payload = {
-            "CardCode": VENDOR_CODE, 
+            "CardCode": vendor_code, 
             "NumAtCard": str(inv_num),
             "DocumentLines": []
         }
@@ -128,20 +143,20 @@ def main(invoice_file, packing_file, dry_run=False):
         
         # Add Lines
         for idx, inv_line in inv_group.iterrows():
-            material = str(inv_line.get('Material', '')).strip()
+            material = str(inv_line.get(inv_map.get('material', 'Material'), '')).strip()
             
             try:
-                net_value = float(inv_line.get('Net Value', 0))
-                total_qty = float(inv_line.get('Total Qty.', 0))
+                net_value = float(inv_line.get(inv_map.get('net_value', 'Net Value'), 0))
+                total_qty = float(inv_line.get(inv_map.get('qty', 'Total Qty.'), 0))
             except ValueError:
                 net_value = 0.0
                 total_qty = 0.0
                 
-            # Get SAP ItemCode from Foreign Name
-            sap_item_code = get_item_code_by_frgn_name(session, material)
+            # Get SAP ItemCode from BP Catalog
+            sap_item_code = get_item_code_by_bp_catalog(session, vendor_code, material)
             
             if not sap_item_code:
-                print(f"Warning: Could not find SAP ItemCode for Foreign Name '{material}'. Skipping line.")
+                print(f"Warning: Could not find SAP ItemCode for BP Catalog No '{material}'. Skipping line.")
                 continue
                 
             # Find matching line in PO
@@ -174,13 +189,13 @@ def main(invoice_file, packing_file, dry_run=False):
             
             # Invoice width handling
             try:
-                inv_width_val = float(str(inv_line.get('Width', '')).lower().replace('mm', '').strip())
+                inv_width_val = float(str(inv_line.get(inv_map.get('width', 'Width'), '')).lower().replace('mm', '').strip())
             except ValueError:
                 inv_width_val = -1.0
                 
             # Find batches from packing slip
             # Linking packing slip using 'Billing Document' == Invoice Number
-            billing_col = 'Billing Document'
+            billing_col = pack_map.get('invoice_num', 'Billing Document')
             if billing_col not in pack_df.columns:
                 # Try to find case-insensitive match
                 matches = [c for c in pack_df.columns if str(c).lower().replace(' ', '') == 'billingdocument']
@@ -190,7 +205,7 @@ def main(invoice_file, packing_file, dry_run=False):
                     print(f"Error: Column '{billing_col}' not found in packing slip. Available columns are: {list(pack_df.columns)}")
                     return
             
-            material_col = 'Material'
+            material_col = pack_map.get('material', 'Material')
             if material_col not in pack_df.columns:
                 matches = [c for c in pack_df.columns if str(c).lower().replace(' ', '') == 'material']
                 if matches:
@@ -199,7 +214,7 @@ def main(invoice_file, packing_file, dry_run=False):
                     print(f"Error: Column '{material_col}' not found in packing slip. Available columns are: {list(pack_df.columns)}")
                     return
                     
-            width_col = 'Width MM'
+            width_col = pack_map.get('width', 'Width MM')
             if width_col not in pack_df.columns:
                 matches = [c for c in pack_df.columns if str(c).lower().replace(' ', '') == 'widthmm']
                 if matches:
@@ -223,31 +238,27 @@ def main(invoice_file, packing_file, dry_run=False):
                                  width_mask]
             
             for _, batch_row in batch_rows.iterrows():
-                price = doc_line["Price"]
-                
                 # Fetch weights safely
-                net_wt = batch_row.get('Net_WT(KG)', batch_row.get('Net_WT(KGS)', 0))
-                gross_wt = batch_row.get('Gross_WT(KGS)', batch_row.get('Gross_WT(KG)', 0))
+                net_wt_col = pack_map.get('net_wt', 'Net_WT(KG)')
+                net_wt = batch_row.get(net_wt_col, batch_row.get('Net_WT(KGS)', 0))
                 
                 batch = {
-                    "BatchNumber": str(batch_row.get('Roll No', '')),
+                    "BatchNumber": str(batch_row.get(pack_map.get('batch_num', 'Roll No'), '')),
                     "Quantity": float(net_wt) if pd.notnull(net_wt) else 0.0,
-                    
-                    # Batch UDFs mapping
-                    "U_Length": str(batch_row.get('Length MTR', '')),
-                    "U_width": str(batch_row.get('Width MM', '')),
-                    "U_VechileNo": str(batch_row.get('Vehicle no', '')),
-                    "U_Grade": str(batch_row.get('Grade', '')),
-                    "U_OD": str(batch_row.get('OD MM', '')),
-                    "U_Core": str(batch_row.get('Core INCH', '')),
-                    "U_Price": price,
+                }
+                
+                udfs = pack_map.get('batch_udfs', {})
+                for udf_name, col_name in udfs.items():
+                    batch[udf_name] = str(batch_row.get(col_name, ''))
+                
+                base_price = doc_line.get("UnitPrice", 0)
+                batch.update({
+                    "U_Price": base_price,
                     "U_CardCode": po_cardcode,
                     "U_CardName": po_cardname,
-                    "U_Micron": str(batch_row.get('MIC', '')),
                     "U_NetWt": str(net_wt),
-                    "U_GrossWt": str(gross_wt),
-                    "U_SalesPrice": price
-                }
+                    "U_SalesPrice": base_price
+                })
                 
                 # Replace 'nan' string values with empty strings
                 for k, v in batch.items():
@@ -293,8 +304,14 @@ if __name__ == '__main__':
         print("No Packing Slip file selected. Exiting.")
         exit(0)
         
+    print("Enter the Vendor Code (e.g. V00038):")
+    vendor_code = input().strip()
+    if not vendor_code:
+        print("Vendor code cannot be empty. Exiting.")
+        exit(0)
+
     print("Do you want to run in dry-run mode to preview payload? (y/n)")
     ans = input().strip().lower()
     is_dry_run = (ans == 'y')
     
-    main(invoice_file, packing_file, dry_run=is_dry_run)
+    main(vendor_code, invoice_file, packing_file, dry_run=is_dry_run)
