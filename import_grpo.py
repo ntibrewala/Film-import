@@ -126,7 +126,8 @@ def main(invoice_file, packing_file, dry_run=False):
                     break
             
             if base_line_num is None:
-                print(f"Warning: Item {material} not found in linked PO {po_data['DocNum']}. It will be added without BaseLine linking.")
+                available_items = [str(pl.get('ItemCode', '')).strip() for pl in po_data.get('DocumentLines', [])]
+                print(f"Warning: Item '{material}' not found in linked PO {po_data['DocNum']}. Available items in PO: {available_items}. It will be added without BaseLine linking.")
             
             doc_line = {
                 "ItemCode": material,
@@ -141,8 +142,27 @@ def main(invoice_file, packing_file, dry_run=False):
             
             # Find batches from packing slip
             # Linking packing slip using 'Billing Document' == Invoice Number
-            batch_rows = pack_df[(pack_df['Billing Document'].astype(str) == str(inv_num)) & 
-                                 (pack_df['Material'].astype(str) == material)]
+            billing_col = 'Billing Document'
+            if billing_col not in pack_df.columns:
+                # Try to find case-insensitive match
+                matches = [c for c in pack_df.columns if str(c).lower().replace(' ', '') == 'billingdocument']
+                if matches:
+                    billing_col = matches[0]
+                else:
+                    print(f"Error: Column '{billing_col}' not found in packing slip. Available columns are: {list(pack_df.columns)}")
+                    return
+            
+            material_col = 'Material'
+            if material_col not in pack_df.columns:
+                matches = [c for c in pack_df.columns if str(c).lower().replace(' ', '') == 'material']
+                if matches:
+                    material_col = matches[0]
+                else:
+                    print(f"Error: Column '{material_col}' not found in packing slip. Available columns are: {list(pack_df.columns)}")
+                    return
+
+            batch_rows = pack_df[(pack_df[billing_col].astype(str).str.strip() == str(inv_num).strip()) & 
+                                 (pack_df[material_col].astype(str).str.strip() == str(material).strip())]
             
             for _, batch_row in batch_rows.iterrows():
                 price = doc_line["Price"]
