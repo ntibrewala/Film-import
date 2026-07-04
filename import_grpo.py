@@ -54,6 +54,20 @@ def find_po(session, customer_po_no, order_no):
             
     return None
 
+item_code_cache = {}
+def get_item_code_by_frgn_name(session, frgn_name):
+    """Lookup SAP ItemCode by Foreign Name (FrgnName)"""
+    if frgn_name in item_code_cache:
+        return item_code_cache[frgn_name]
+    
+    query = f"{SL_URL}/Items?$select=ItemCode&$filter=FrgnName eq '{frgn_name}'"
+    res = session.get(query, verify=False).json()
+    if res.get('value') and len(res['value']) > 0:
+        item_code = res['value'][0]['ItemCode']
+        item_code_cache[frgn_name] = item_code
+        return item_code
+    return None
+
 def main(invoice_file, packing_file, dry_run=False):
     print(f"Reading invoice data from: {invoice_file}")
     inv_df = pd.read_excel(invoice_file)
@@ -118,19 +132,26 @@ def main(invoice_file, packing_file, dry_run=False):
                 net_value = 0.0
                 total_qty = 0.0
                 
+            # Get SAP ItemCode from Foreign Name
+            sap_item_code = get_item_code_by_frgn_name(session, material)
+            
+            if not sap_item_code:
+                print(f"Warning: Could not find SAP ItemCode for Foreign Name '{material}'. Skipping line.")
+                continue
+                
             # Find matching line in PO
             base_line_num = None
             for pl in po_data.get('DocumentLines', []):
-                if str(pl['ItemCode']).strip() == material:
+                if str(pl['ItemCode']).strip() == str(sap_item_code).strip():
                     base_line_num = pl['LineNum']
                     break
             
             if base_line_num is None:
                 available_items = [str(pl.get('ItemCode', '')).strip() for pl in po_data.get('DocumentLines', [])]
-                print(f"Warning: Item '{material}' not found in linked PO {po_data['DocNum']}. Available items in PO: {available_items}. It will be added without BaseLine linking.")
+                print(f"Warning: Item '{sap_item_code}' (FrgnName: '{material}') not found in linked PO {po_data['DocNum']}. Available items in PO: {available_items}. It will be added without BaseLine linking.")
             
             doc_line = {
-                "ItemCode": material,
+                "ItemCode": sap_item_code,
                 "Quantity": total_qty,
                 "Price": net_value / total_qty if total_qty > 0 else 0,
                 "BatchNumbers": []
