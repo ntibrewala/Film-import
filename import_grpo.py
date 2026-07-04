@@ -24,40 +24,49 @@ def save_vendor_mappings(mappings):
     with open('vendor_mappings.json', 'w') as f:
         json.dump(mappings, f, indent=2)
 
+def prompt_col(message):
+    val = input(message).strip()
+    if val.lower() in ['exit', 'quit', 'esc']:
+        print("\nMapping aborted by user. No changes were saved.")
+        import sys
+        sys.exit(0)
+    return val
+
 def setup_new_vendor(vendor_code, mappings):
     print(f"\n--- Interactive Setup for New Vendor: {vendor_code} ---")
     print("Please type the exact column names as they appear in the Excel files.")
-    print("If a field is not present in the Excel file, you can just press Enter to skip it.\n")
+    print("If a field is not present in the Excel file, you can just press Enter to skip it.")
+    print("Type 'exit' or 'esc' at any prompt to cancel the setup without saving.\n")
     
     invoice = {}
     packing = {}
     batch_udfs = {}
     
     print("[INVOICE EXCEL FILE]")
-    invoice["invoice_num"] = input("Column name for 'Invoice Number' (e.g. Invoice): ").strip()
-    invoice["material"] = input("Column name for 'Material / Item Part Number': ").strip()
-    invoice["qty"] = input("Column name for 'Total Quantity': ").strip()
-    invoice["net_value"] = input("Column name for 'Line Net Value (Price)': ").strip()
-    invoice["width"] = input("Column name for 'Roll Width' (if any): ").strip()
-    invoice["date"] = input("Column name for 'Billing Date' (if any): ").strip()
+    invoice["invoice_num"] = prompt_col("Column name for 'Invoice Number' (e.g. Invoice): ")
+    invoice["material"] = prompt_col("Column name for 'Material / Item Part Number': ")
+    invoice["qty"] = prompt_col("Column name for 'Total Quantity': ")
+    invoice["net_value"] = prompt_col("Column name for 'Line Net Value (Price)': ")
+    invoice["width"] = prompt_col("Column name for 'Roll Width' (if any): ")
+    invoice["date"] = prompt_col("Column name for 'Billing Date' (if any): ")
     
     print("\n[PACKING SLIP EXCEL FILE]")
-    packing["invoice_num"] = input("Column name for 'Invoice / Billing Document': ").strip()
-    packing["material"] = input("Column name for 'Material / Item Part Number': ").strip()
-    packing["width"] = input("Column name for 'Width MM': ").strip()
-    packing["net_wt"] = input("Column name for 'Net Weight (KGS)': ").strip()
-    packing["batch_num"] = input("Column name for 'Batch Number / Roll No': ").strip()
+    packing["invoice_num"] = prompt_col("Column name for 'Invoice / Billing Document': ")
+    packing["material"] = prompt_col("Column name for 'Material / Item Part Number': ")
+    packing["width"] = prompt_col("Column name for 'Width MM': ")
+    packing["net_wt"] = prompt_col("Column name for 'Net Weight (KGS)': ")
+    packing["batch_num"] = prompt_col("Column name for 'Batch Number / Roll No': ")
     
     print("\n[PACKING SLIP - BATCH DETAILS (UDFs)]")
-    batch_udfs["U_Length"] = input("Column name for 'Length (MTR)': ").strip()
-    batch_udfs["U_width"] = input("Column name for 'Width MM': ").strip()
-    batch_udfs["U_EmName"] = input("Column name for 'EmName' (if any): ").strip()
-    batch_udfs["U_VechileNo"] = input("Column name for 'Vehicle No': ").strip()
-    batch_udfs["U_Grade"] = input("Column name for 'Grade': ").strip()
-    batch_udfs["U_OD"] = input("Column name for 'OD MM': ").strip()
-    batch_udfs["U_Core"] = input("Column name for 'Core INCH': ").strip()
-    batch_udfs["U_Micron"] = input("Column name for 'Micron (MIC)': ").strip()
-    batch_udfs["U_GrossWt"] = input("Column name for 'Gross Weight (KGS)': ").strip()
+    batch_udfs["U_Length"] = prompt_col("Column name for 'Length (MTR)': ")
+    batch_udfs["U_width"] = prompt_col("Column name for 'Width MM': ")
+    batch_udfs["U_EmName"] = prompt_col("Column name for 'EmName' (if any): ")
+    batch_udfs["U_VechileNo"] = prompt_col("Column name for 'Vehicle No': ")
+    batch_udfs["U_Grade"] = prompt_col("Column name for 'Grade': ")
+    batch_udfs["U_OD"] = prompt_col("Column name for 'OD MM': ")
+    batch_udfs["U_Core"] = prompt_col("Column name for 'Core INCH': ")
+    batch_udfs["U_Micron"] = prompt_col("Column name for 'Micron (MIC)': ")
+    batch_udfs["U_GrossWt"] = prompt_col("Column name for 'Gross Weight (KGS)': ")
     
     # Remove empty answers
     invoice = {k: v for k, v in invoice.items() if v}
