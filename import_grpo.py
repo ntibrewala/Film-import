@@ -60,7 +60,7 @@ def get_item_code_by_frgn_name(session, frgn_name):
     if frgn_name in item_code_cache:
         return item_code_cache[frgn_name]
     
-    query = f"{SL_URL}/Items?$select=ItemCode&$filter=FrgnName eq '{frgn_name}'"
+    query = f"{SL_URL}/Items?$select=ItemCode&$filter=ForeignName eq '{frgn_name}'"
     res = session.get(query, verify=False).json()
     if res.get('value') and len(res['value']) > 0:
         item_code = res['value'][0]['ItemCode']
