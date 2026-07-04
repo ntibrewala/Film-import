@@ -124,6 +124,8 @@ def main(invoice_file, packing_file, dry_run=False):
         if doc_date:
             grpo_payload["DocDate"] = doc_date
             
+        used_po_lines = set()
+        
         # Add Lines
         for idx, inv_line in inv_group.iterrows():
             material = str(inv_line.get('Material', '')).strip()
@@ -146,12 +148,14 @@ def main(invoice_file, packing_file, dry_run=False):
             base_line_num = None
             for pl in po_data.get('DocumentLines', []):
                 if str(pl['ItemCode']).strip() == str(sap_item_code).strip():
-                    base_line_num = pl['LineNum']
-                    break
+                    if pl['LineNum'] not in used_po_lines:
+                        base_line_num = pl['LineNum']
+                        used_po_lines.add(pl['LineNum'])
+                        break
             
             if base_line_num is None:
-                available_items = [str(pl.get('ItemCode', '')).strip() for pl in po_data.get('DocumentLines', [])]
-                print(f"Warning: Item '{sap_item_code}' (FrgnName: '{material}') not found in linked PO {po_data['DocNum']}. Available items in PO: {available_items}. It will be added without BaseLine linking.")
+                available_items = [f"{pl.get('ItemCode')} (Line {pl.get('LineNum')})" for pl in po_data.get('DocumentLines', [])]
+                print(f"Warning: Item '{sap_item_code}' (FrgnName: '{material}') could not be linked to an unused PO line in PO {po_data['DocNum']}. Available: {available_items}. It will be added without BaseLine linking.")
             
             doc_line = {
                 "ItemCode": sap_item_code,
