@@ -341,7 +341,7 @@ if __name__ == '__main__':
         exit(0)
         
     print("Enter the Vendor Code (e.g. V00038):")
-    vendor_code = input().strip()
+    vendor_code = input().strip().upper()
     if not vendor_code:
         print("Vendor code cannot be empty. Exiting.")
         exit(0)
