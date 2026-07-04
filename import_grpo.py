@@ -446,7 +446,7 @@ def main(vendor_code, invoice_file, packing_file, dry_run=False):
                 base_price = doc_line.get("UnitPrice", 0)
                 batch.update({
                     "U_Price": base_price,
-                    "U_CardCode": cust_code if cust_code else po_cardcode,
+                    "U_CardCode": po_cardcode,
                     "U_CardName": cust_name if cust_name else po_cardname,
                     "U_NetWt": str(net_wt),
                     "U_SalesPrice": base_price
