@@ -9,9 +9,9 @@ import os
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Configuration from Environment Variables
-SL_URL = os.environ.get('SAP_SL_URL', 'https://localhost:50000/b1s/v1')
+SL_URL = os.environ.get('SAP_SL_URL', 'https://10.10.0.113:50000/b1s/v1')
 SL_USER = os.environ.get('SAP_USER', 'manager')
-SL_PASSWORD = os.environ.get('SAP_PASSWORD', 'password')
+SL_PASSWORD = os.environ.get('SAP_PASSWORD', 'bppl@123')
 SL_DB = os.environ.get('SAP_COMPANY_DB', 'TEST_BHAVYA_23062026')
 VENDOR_CODE = 'V00038'  # Hardcoded based on user request
 
