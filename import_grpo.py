@@ -121,16 +121,24 @@ def setup_new_vendor(vendor_code, mappings):
     packing = {k: v for k, v in packing.items() if v}
     batch_udfs = {k: v for k, v in batch_udfs.items() if v}
     
-    packing["batch_udfs"] = batch_udfs
-    mappings[vendor_code] = {
-        "invoice": invoice,
-        "packing": packing
-    }
-    
-    save_vendor_mappings(mappings)
-    print(f"\nSuccess! Configuration for {vendor_code} has been saved to vendor_mappings.json.")
-    print("Continuing with script execution...\n")
-    return mappings
+    while True:
+        ans = input(f"\nDo you want to save this mapping for {vendor_code} to sap_vendor_mappings.json? (y/n): ").strip().lower()
+        if ans == 'y':
+            packing["batch_udfs"] = batch_udfs
+            mappings[vendor_code] = {
+                "invoice": invoice,
+                "packing": packing
+            }
+            save_vendor_mappings(mappings)
+            print(f"\nSuccess! Configuration for {vendor_code} has been saved to sap_vendor_mappings.json.")
+            print("Continuing with script execution...\n")
+            return mappings
+        elif ans == 'n' or ans == '\x05' or ans in ['exit', 'quit', 'esc', 'e']:
+            print("\nMapping discarded by user. Exiting.")
+            import sys
+            sys.exit(0)
+        else:
+            print("Please enter 'y' or 'n'.")
 
 def login():
     """Authenticate with SAP Service Layer"""
