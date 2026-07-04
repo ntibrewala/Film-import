@@ -157,9 +157,13 @@ def main(invoice_file, packing_file, dry_run=False):
                 available_items = [f"{pl.get('ItemCode')} (Line {pl.get('LineNum')})" for pl in po_data.get('DocumentLines', [])]
                 print(f"Warning: Item '{sap_item_code}' (FrgnName: '{material}') could not be linked to an unused PO line in PO {po_data['DocNum']}. Available: {available_items}. It will be added without BaseLine linking.")
             
+            price = net_value / total_qty if total_qty > 0 else 0
+            
             doc_line = {
                 "ItemCode": sap_item_code,
                 "Quantity": total_qty,
+                "UnitPrice": price,
+                "DiscountPercent": 0.0,
                 "BatchNumbers": []
             }
             
@@ -167,9 +171,6 @@ def main(invoice_file, packing_file, dry_run=False):
                 doc_line["BaseType"] = 22 # Purchase Order
                 doc_line["BaseEntry"] = po_docentry
                 doc_line["BaseLine"] = base_line_num
-            else:
-                price = net_value / total_qty if total_qty > 0 else 0
-                doc_line["Price"] = price
             
             # Invoice width handling
             try:
