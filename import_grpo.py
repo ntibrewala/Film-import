@@ -160,13 +160,16 @@ def main(invoice_file, packing_file, dry_run=False):
             doc_line = {
                 "ItemCode": sap_item_code,
                 "Quantity": total_qty,
-                "Price": net_value / total_qty if total_qty > 0 else 0,
                 "BatchNumbers": []
             }
+            
             if base_line_num is not None:
                 doc_line["BaseType"] = 22 # Purchase Order
                 doc_line["BaseEntry"] = po_docentry
                 doc_line["BaseLine"] = base_line_num
+            else:
+                price = net_value / total_qty if total_qty > 0 else 0
+                doc_line["Price"] = price
             
             # Invoice width handling
             try:
