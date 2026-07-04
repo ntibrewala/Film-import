@@ -22,6 +22,25 @@ try:
 except Exception:
     pass
 
+# Setup Logging to C:\log
+try:
+    LOG_DIR = Path(r"C:\log")
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    import sys
+    class LoggerWriter:
+        def __init__(self, filename):
+            self.terminal = sys.stdout
+            self.log = open(filename, "w", encoding="utf-8")
+        def write(self, message):
+            self.terminal.write(message)
+            self.log.write(message)
+        def flush(self):
+            self.terminal.flush()
+            self.log.flush()
+    sys.stdout = LoggerWriter(LOG_DIR / "import_grpo.log")
+except Exception as e:
+    print(f"Could not create log file in C:\\log: {e}")
+
 CONFIG_PATH = CONFIG_DIR / "sap_vendor_mappings.json"
 
 def load_vendor_mappings():
