@@ -188,16 +188,7 @@ def get_item_code_by_bp_catalog(session, bp_code, catalog_no):
         item_code_cache[cache_key] = item_code
         return item_code
         
-    # Fallback to ForeignName if BP Catalog mapping isn't found
-    fallback_query = f"{SL_URL}/Items?$select=ItemCode&$filter=ForeignName eq '{catalog_no}'"
-    fb_res_obj = session.get(fallback_query, verify=False)
-    fb_res = fb_res_obj.json()
-    if fb_res.get('value') and len(fb_res['value']) > 0:
-        item_code = fb_res['value'][0]['ItemCode']
-        item_code_cache[cache_key] = item_code
-        return item_code
-
-    print(f"Debug: Item '{catalog_no}' not found in BP Catalog or ForeignName.")
+    print(f"Debug: Item '{catalog_no}' not found in BP Catalog for vendor '{bp_code}'.")
     return None
 
 def main(vendor_code, invoice_file, packing_file, dry_run=False):
