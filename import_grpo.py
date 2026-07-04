@@ -78,7 +78,6 @@ def setup_new_vendor(vendor_code, mappings):
     invoice["net_value"] = prompt_col("Column name for 'Line Net Value (Price)': ")
     invoice["width"] = prompt_col("Column name for 'Roll Width' (if any): ")
     invoice["date"] = prompt_col("Column name for 'Billing Date' (if any): ")
-    invoice["card_code"] = prompt_col("Column name for 'Customer Code (CardCode)' (if any): ")
     
     print("\n[PACKING SLIP EXCEL FILE]")
     packing["invoice_num"] = prompt_col("Column name for 'Invoice / Billing Document': ")
@@ -298,10 +297,12 @@ def main(vendor_code, invoice_file, packing_file, dry_run=False):
                 
             # Find matching line in PO
             base_line_num = None
+            po_line_cardcode = ''
             for pl in po_data.get('DocumentLines', []):
                 if str(pl['ItemCode']).strip() == str(sap_item_code).strip():
                     if pl['LineNum'] not in used_po_lines:
                         base_line_num = pl['LineNum']
+                        po_line_cardcode = pl.get('U_CardCode', '')
                         used_po_lines.add(pl['LineNum'])
                         break
             
@@ -330,12 +331,9 @@ def main(vendor_code, invoice_file, packing_file, dry_run=False):
             except ValueError:
                 inv_width_val = -1.0
                 
-            # Customer Code handling for Batch UDFs
-            cust_code_col = inv_map.get('card_code', 'CardCode')
-            cust_code = str(inv_line.get(cust_code_col, '')).strip()
-            if cust_code.lower() == 'nan':
-                cust_code = ''
-                
+            # Customer Code handling for Batch UDFs (Pulled from PO Line)
+            cust_code = str(po_line_cardcode).strip()
+            
             cust_name = ''
             if cust_code:
                 if cust_code in card_name_cache:
