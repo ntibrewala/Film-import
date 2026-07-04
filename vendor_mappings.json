@@ -1,7 +1,7 @@
 {
   "V00038": {
     "invoice": {
-      "invoice_num": "Billing Document",
+      "invoice_num": "Invoice",
       "material": "Material",
       "qty": "Total Qty.",
       "net_value": "Net Value",
