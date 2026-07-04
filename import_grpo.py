@@ -25,8 +25,10 @@ def save_vendor_mappings(mappings):
         json.dump(mappings, f, indent=2)
 
 def prompt_col(message):
-    val = input(message).strip()
-    if val.lower() in ['exit', 'quit', 'esc']:
+    if message.endswith(": "):
+        message = message[:-2]
+    val = input(f"{message} [type 'e' to cancel]: ").strip()
+    if val.lower() in ['exit', 'quit', 'esc', 'e']:
         print("\nMapping aborted by user. No changes were saved.")
         import sys
         sys.exit(0)
