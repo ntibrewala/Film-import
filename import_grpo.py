@@ -295,16 +295,38 @@ def main(vendor_code, invoice_file, packing_file, dry_run=False):
                 print(f"Warning: Could not find SAP ItemCode for BP Catalog No '{material}'. Skipping line.")
                 continue
                 
+            # Invoice width handling
+            try:
+                inv_width_val = float(str(inv_line.get(inv_map.get('width', 'Width'), '')).lower().replace('mm', '').strip())
+            except ValueError:
+                inv_width_val = -1.0
+
             # Find matching line in PO
             base_line_num = None
             po_line_cardcode = ''
             for pl in po_data.get('DocumentLines', []):
                 if str(pl['ItemCode']).strip() == str(sap_item_code).strip():
-                    if pl['LineNum'] not in used_po_lines:
-                        base_line_num = pl['LineNum']
-                        po_line_cardcode = pl.get('U_CardCode', '')
-                        used_po_lines.add(pl['LineNum'])
-                        break
+                    
+                    # Match by Width as well
+                    po_width_str = str(pl.get('U_Width', '')).strip()
+                    try:
+                        po_width_val = float(po_width_str)
+                    except ValueError:
+                        po_width_val = -1.0
+                        
+                    width_matches = False
+                    if inv_width_val == po_width_val:
+                        width_matches = True
+                    elif inv_width_val == -1.0 and po_width_str == '':
+                        width_matches = True
+                        
+                    if width_matches:
+                        if pl['LineNum'] not in used_po_lines:
+                            base_line_num = pl['LineNum']
+                            po_line_cardcode = pl.get('U_CardCode', '')
+                            print(f"DEBUG: Matched PO Line {base_line_num} for item '{sap_item_code}' (Width: {inv_width_val}). Read U_CardCode from PO API: '{po_line_cardcode}'")
+                            used_po_lines.add(pl['LineNum'])
+                            break
             
             if base_line_num is None:
                 available_items = [f"{pl.get('ItemCode')} (Line {pl.get('LineNum')})" for pl in po_data.get('DocumentLines', [])]
@@ -325,11 +347,7 @@ def main(vendor_code, invoice_file, packing_file, dry_run=False):
                 doc_line["BaseEntry"] = po_docentry
                 doc_line["BaseLine"] = base_line_num
             
-            # Invoice width handling
-            try:
-                inv_width_val = float(str(inv_line.get(inv_map.get('width', 'Width'), '')).lower().replace('mm', '').strip())
-            except ValueError:
-                inv_width_val = -1.0
+            # (Width already handled above for PO line matching)
                 
             # Customer Code handling for Batch UDFs (Pulled from PO Line)
             cust_code = str(po_line_cardcode).strip()
@@ -346,6 +364,8 @@ def main(vendor_code, invoice_file, packing_file, dry_run=False):
                         card_name_cache[cust_code] = cust_name
                     else:
                         print(f"Warning: Could not fetch CardName for Customer '{cust_code}'")
+                        
+            print(f"DEBUG: Final decision for Batch U_CardCode: '{cust_code if cust_code else po_cardcode}' (Because cust_code from PO line is '{cust_code}', and fallback vendor is '{po_cardcode}')")
                 
             # Find batches from packing slip
             # Linking packing slip using 'Billing Document' == Invoice Number
