@@ -14,8 +14,15 @@ SL_USER = os.environ.get('SAP_USER', 'manager')
 SL_PASSWORD = os.environ.get('SAP_PASSWORD', 'bppl@123')
 SL_DB = os.environ.get('SAP_COMPANY_DB', 'TEST_BHAVYA_23062026')
 from pathlib import Path
+import os
 
-CONFIG_PATH = Path.home() / "sap_vendor_mappings.json"
+CONFIG_DIR = Path(r"D:\bhv\importgrpo")
+try:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
+
+CONFIG_PATH = CONFIG_DIR / "sap_vendor_mappings.json"
 
 def load_vendor_mappings():
     # Migrate local file to global path if it exists
