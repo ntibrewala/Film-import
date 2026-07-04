@@ -168,6 +168,12 @@ def main(invoice_file, packing_file, dry_run=False):
                 doc_line["BaseEntry"] = po_docentry
                 doc_line["BaseLine"] = base_line_num
             
+            # Invoice width handling
+            try:
+                inv_width_val = float(str(inv_line.get('Width', '')).lower().replace('mm', '').strip())
+            except ValueError:
+                inv_width_val = -1.0
+                
             # Find batches from packing slip
             # Linking packing slip using 'Billing Document' == Invoice Number
             billing_col = 'Billing Document'
@@ -188,9 +194,29 @@ def main(invoice_file, packing_file, dry_run=False):
                 else:
                     print(f"Error: Column '{material_col}' not found in packing slip. Available columns are: {list(pack_df.columns)}")
                     return
+                    
+            width_col = 'Width MM'
+            if width_col not in pack_df.columns:
+                matches = [c for c in pack_df.columns if str(c).lower().replace(' ', '') == 'widthmm']
+                if matches:
+                    width_col = matches[0]
+                else:
+                    print(f"Warning: Column '{width_col}' not found in packing slip. Batches might be duplicated across widths!")
+                    width_col = None
+
+            if width_col and inv_width_val != -1.0:
+                def match_width(w):
+                    try:
+                        return float(str(w).strip()) == inv_width_val
+                    except:
+                        return False
+                width_mask = pack_df[width_col].apply(match_width)
+            else:
+                width_mask = True
 
             batch_rows = pack_df[(pack_df[billing_col].astype(str).str.strip() == str(inv_num).strip()) & 
-                                 (pack_df[material_col].astype(str).str.strip() == str(material).strip())]
+                                 (pack_df[material_col].astype(str).str.strip() == str(material).strip()) &
+                                 width_mask]
             
             for _, batch_row in batch_rows.iterrows():
                 price = doc_line["Price"]
