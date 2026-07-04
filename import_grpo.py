@@ -22,9 +22,9 @@ try:
 except Exception:
     pass
 
-# Setup Logging to D:\bhv\importgrpo
+# Setup Logging to D:\bhv\clogs
 try:
-    LOG_DIR = Path(r"D:\bhv\importgrpo")
+    LOG_DIR = Path(r"D:\bhv\clogs")
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     import sys
     class LoggerWriter:
