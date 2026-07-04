@@ -13,15 +13,29 @@ SL_URL = os.environ.get('SAP_SL_URL', 'https://10.10.0.113:50000/b1s/v1')
 SL_USER = os.environ.get('SAP_USER', 'manager')
 SL_PASSWORD = os.environ.get('SAP_PASSWORD', 'bppl@123')
 SL_DB = os.environ.get('SAP_COMPANY_DB', 'TEST_BHAVYA_23062026')
+from pathlib import Path
+
+CONFIG_PATH = Path.home() / "sap_vendor_mappings.json"
+
 def load_vendor_mappings():
+    # Migrate local file to global path if it exists
+    if os.path.exists('vendor_mappings.json') and not CONFIG_PATH.exists():
+        try:
+            with open('vendor_mappings.json', 'r') as f:
+                data = json.load(f)
+            with open(CONFIG_PATH, 'w') as f:
+                json.dump(data, f, indent=2)
+        except Exception:
+            pass
+            
     try:
-        with open('vendor_mappings.json', 'r') as f:
+        with open(CONFIG_PATH, 'r') as f:
             return json.load(f)
     except FileNotFoundError:
         return {}
 
 def save_vendor_mappings(mappings):
-    with open('vendor_mappings.json', 'w') as f:
+    with open(CONFIG_PATH, 'w') as f:
         json.dump(mappings, f, indent=2)
 
 def prompt_col(message):
