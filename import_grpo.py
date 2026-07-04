@@ -27,12 +27,18 @@ def save_vendor_mappings(mappings):
 def prompt_col(message):
     if message.endswith(": "):
         message = message[:-2]
-    val = input(f"{message} [type 'e' to cancel]: ").strip()
-    if val.lower() in ['exit', 'quit', 'esc', 'e']:
+    try:
+        val = input(f"{message} [press Ctrl+E to exit]: ").strip()
+        # \x05 is the ASCII character for Ctrl+E
+        if val == '\x05' or val.lower() in ['exit', 'quit', 'esc', 'e']:
+            print("\nMapping aborted by user. No changes were saved.")
+            import sys
+            sys.exit(0)
+        return val
+    except KeyboardInterrupt:
         print("\nMapping aborted by user. No changes were saved.")
         import sys
         sys.exit(0)
-    return val
 
 def setup_new_vendor(vendor_code, mappings):
     print(f"\n--- Interactive Setup for New Vendor: {vendor_code} ---")
