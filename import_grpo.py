@@ -78,6 +78,7 @@ def setup_new_vendor(vendor_code, mappings):
     invoice["net_value"] = prompt_col("Column name for 'Line Net Value (Price)': ")
     invoice["width"] = prompt_col("Column name for 'Roll Width' (if any): ")
     invoice["date"] = prompt_col("Column name for 'Billing Date' (if any): ")
+    invoice["card_code"] = prompt_col("Column name for 'Customer Code (CardCode)' (if any): ")
     
     print("\n[PACKING SLIP EXCEL FILE]")
     packing["invoice_num"] = prompt_col("Column name for 'Invoice / Billing Document': ")
@@ -153,6 +154,8 @@ def find_po(session, customer_po_no, order_no):
     return None
 
 item_code_cache = {}
+card_name_cache = {}
+
 def get_item_code_by_bp_catalog(session, bp_code, catalog_no):
     """Lookup SAP ItemCode by BP Catalog Number, with fallback to Foreign Name"""
     cache_key = f"{bp_code}_{catalog_no}"
@@ -327,6 +330,25 @@ def main(vendor_code, invoice_file, packing_file, dry_run=False):
             except ValueError:
                 inv_width_val = -1.0
                 
+            # Customer Code handling for Batch UDFs
+            cust_code_col = inv_map.get('card_code', 'CardCode')
+            cust_code = str(inv_line.get(cust_code_col, '')).strip()
+            if cust_code.lower() == 'nan':
+                cust_code = ''
+                
+            cust_name = ''
+            if cust_code:
+                if cust_code in card_name_cache:
+                    cust_name = card_name_cache[cust_code]
+                else:
+                    query = f"{SL_URL}/BusinessPartners('{cust_code}')?$select=CardName"
+                    bp_res = session.get(query, verify=False)
+                    if bp_res.status_code == 200:
+                        cust_name = bp_res.json().get('CardName', '')
+                        card_name_cache[cust_code] = cust_name
+                    else:
+                        print(f"Warning: Could not fetch CardName for Customer '{cust_code}'")
+                
             # Find batches from packing slip
             # Linking packing slip using 'Billing Document' == Invoice Number
             billing_col = pack_map.get('invoice_num', 'Billing Document')
@@ -388,8 +410,8 @@ def main(vendor_code, invoice_file, packing_file, dry_run=False):
                 base_price = doc_line.get("UnitPrice", 0)
                 batch.update({
                     "U_Price": base_price,
-                    "U_CardCode": po_cardcode,
-                    "U_CardName": po_cardname,
+                    "U_CardCode": cust_code if cust_code else po_cardcode,
+                    "U_CardName": cust_name if cust_name else po_cardname,
                     "U_NetWt": str(net_wt),
                     "U_SalesPrice": base_price
                 })
